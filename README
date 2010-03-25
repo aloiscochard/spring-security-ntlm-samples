@@ -1,0 +1,7 @@
+--[Spring Security NTLM Samples]--
+This project contains samples presenting the usage of the spring-security-ntlm module.
+
+[Failover]
+This sample present an application that use specific strategies to failover on standard login form if authentication fail using NTLM.
+
+Alois Cochard (alois.cochard@gmail.com) / January 2010

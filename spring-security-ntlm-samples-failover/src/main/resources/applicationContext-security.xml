@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:sec="http://www.springframework.org/schema/security"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-2.0.2.xsd">
+
+	<!-- Security Configuration -->
+	<bean id="securityConfiguration" class="org.springframework.security.ntlm.samples.failover.SecurityConfiguration">
+		<!-- You can disable NTLM authentication at all by defining 'STANDARD' -->
+		<property name="authentication" value="NTLM" />
+		<!-- NTLM settings -->
+		<property name="stripDomain" value="true" />
+		<property name="defaultDomain" value="MYCOMPANY.NET" />
+		<property name="domainController" value="pdc.mycompany.net" />
+	</bean>
+
+	<!-- Default Entry Point (Using strategy to switch between STANDARD/NTLM -->
+	<bean id="defaultEntryPoint" class="org.springframework.security.ntlm.samples.failover.AuthenticationEntryPoint">
+		<property name="securityConfiguration" ref="securityConfiguration" />
+		<!-- Default filter chain proxy -->
+		<property name="proxy" ref="_filterChainProxy" />
+	</bean>
+	
+	<!-- Defining default entry point in translation filter -->
+	<bean id="exceptionTranslationFilter"
+		class="org.springframework.security.ui.ExceptionTranslationFilter">
+		<property name="authenticationEntryPoint" ref="defaultEntryPoint" />
+		<property name="accessDeniedHandler" ref="accessDeniedHandler" />
+	</bean>
+	<bean id="accessDeniedHandler" class="org.springframework.security.ui.AccessDeniedHandlerImpl"/>
+
+	<!-- Authentication -->
+	<sec:authentication-manager alias="authenticationManager" />
+	<bean id="authenticationProvider" class="org.springframework.security.ntlm.samples.failover.AuthenticationProvider">
+		<sec:custom-authentication-provider />
+		<property name="userDetailsService" ref="userDetailsService" />
+	</bean>
+
+	<!-- NTLM -->
+	<bean id="ntlmEntryPoint" class="org.springframework.security.ui.ntlm.NtlmProcessingFilterEntryPoint">
+		<property name="authenticationFailureUrl" value="/spring_security_login" />
+	</bean>
+	<bean id="ntlmFilter" class="org.springframework.security.ntlm.samples.failover.NtlmProcessingFilter">
+		<sec:custom-filter position="NTLM_FILTER" />
+		<property name="authenticationManager" ref="authenticationManager" />
+		<property name="retryOnAuthFailure" value="false" />
+		<property name="securityConfiguration" ref="securityConfiguration" />
+
+	</bean>
+	
+	<!-- FORM -->
+	<bean id="formLoginEntryPoint" class="org.springframework.security.ui.webapp.AuthenticationProcessingFilterEntryPoint">
+		<property name="serverSideRedirect" value="false" />
+		<property name="forceHttps" value="false" />
+		<property name="loginFormUrl" value="/spring_security_login"/>
+	</bean>
+
+	<!-- User details service -->
+	<sec:user-service id="userDetailsService">
+		<sec:user name="admin" password="admin" authorities="ROLE_USERS,ROLE_ADMINISTRATORS" />
+		<sec:user name="user" password="user" authorities="ROLE_USERS" />
+		<!-- Add a user with your domain username here for testing NTLM -->
+		<sec:user name="alois.cochard" password="user" authorities="ROLE_USERS" />		
+	</sec:user-service>
+
+	<!-- HTTP configuration -->
+	<sec:http servlet-api-provision="false" entry-point-ref="defaultEntryPoint">
+		<sec:anonymous />
+		<sec:http-basic />
+		<sec:logout />
+		<sec:remember-me user-service-ref="userDetailsService" />
+		<sec:form-login default-target-url="/index.jsp" />
+
+		<sec:intercept-url pattern="/**" filters="none" />
+		<sec:intercept-url pattern="/secure.jsp" access="ROLE_USERS" />
+		<sec:intercept-url pattern="/admin.jsp" access="ROLE_ADMINISTRATORS" />
+	</sec:http>
+</beans>
